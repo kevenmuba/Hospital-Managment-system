@@ -8,6 +8,9 @@ import RegisterPage from './Pages/RegisterPage'
 import axios from "axios";
 import { UserContextProvider } from './UserContext'
 import ProfilePage from './Pages/ProfilePage'
+import PlacePage from './Pages/placePage'
+import PlacesPage from './Pages/PlacesPage'
+import PlacesFormPage from './Pages/PlacesFormPage'
 // import placePage from './Pages/placePage'
 axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
 axios.defaults.withCredentials = true;
@@ -25,7 +28,12 @@ function App() {
     <Route path="/login" element={<LoginPage />} />
     <Route path="/register" element={<RegisterPage/>} />
     <Route path="/account" element={<ProfilePage />} />
-    <Route path="/account/places" element={<LoginPage/>} />
+    <Route path="/account/places" element={<PlacesPage />} />
+    <Route path="/account/places/new" element={<PlacesFormPage />} />
+    
+
+    {/* <Route path="/account/:subpage?" element={<ProfilePage/>} />
+    <Route path="/account/:subpage/:id" element={<ProfilePage/>} /> */}
     </Route>                                                                                                                                                               
     </Routes>
     </UserContextProvider>
