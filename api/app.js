@@ -2,114 +2,119 @@ const express = require('express');
 const cors = require('cors');
 const connectDB = require("./db/db");
 const imageDownloader = require('image-downloader');
+const fs = require('fs');
 const path = require('path');
-const Place = require('./models/Place')
-const router = require('./routes/index')
+const Place = require('./models/Place');
+const router = require('./routes/index');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+
 const app = express();
 const jwtSecret = process.env.JWT_SECRET;
 const cookieParser = require('cookie-parser');
-/* app.use('/uploads',express.static(__dirname+'/uploads'));*/
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+}
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static(uploadsDir));
 app.use(express.json());
 require('dotenv').config();
 
 app.use(cors({
-  credentials: true,
-  origin: 'http://localhost:5173',
+    credentials: true,
+    origin: 'http://localhost:5173',
 }));
- 
+
 // Connect to MongoDB
 connectDB();
 app.use(router);
 
 app.get("/try", (req, res) => {
-  res.send(" greate you coonected the nodejs with mongo db ");
-});
-app.get('/api/test', (req,res) => {
-  // mongoose.connect(process.env.MONGO_URL);
-  res.json('test ok');
+    res.send("Great! You connected Node.js with MongoDB.");
 });
 
+app.get('/api/test', (req, res) => {
+    res.json('Test OK');
+});
+
+// Endpoint to upload an image by link
 app.post('/api/upload-by-link', async (req, res) => {
-  const { link } = req.body;
-  const newName = 'photo' + Date.now() + '.jpg';
-  const dest = path.join(__dirname, 'uploads', newName);
+    const { link } = req.body;
+    const newName = 'photo' + Date.now() + '.jpg';
+    const dest = path.join(uploadsDir, newName);
 
-  try {
-    await imageDownloader.image({
-      url: link,
-      dest: dest,
-    });
-    const relativePath = `/uploads/${newName}`; // Create a relative URL for frontend access
-    res.json({ message: 'Image downloaded successfully', filePath: relativePath });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to download image', details: error.message });
-  }
+    try {
+        await imageDownloader.image({
+            url: link,
+            dest: dest,
+        });
+        const relativePath = `/uploads/${newName}`; // Create a relative URL for frontend access
+        res.json({ message: 'Image downloaded successfully', filePath: relativePath });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to download image', details: error.message });
+    }
+});
+
+// Set up multer for file uploads
+const photosMiddleware = multer({ dest: uploadsDir });
+
+
+app.post('/api/upload', photosMiddleware.array('photos', 100), async (req, res) => {
+    const uploadedFiles = [];
+    
+    // Check if files were uploaded
+    if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ error: 'No files were uploaded.' });
+    }
+
+    for (let i = 0; i < req.files.length; i++) {
+        const { path: tempPath, originalname } = req.files[i];
+        const parts = originalname.split('.');
+        const ext = parts[parts.length - 1];
+        const newPath = path.join(uploadsDir, `${Date.now()}-${originalname}`); // Use a unique name
+
+        // Rename the file to include its original extension
+        fs.renameSync(tempPath, newPath);
+        
+        // Store relative path for response
+        uploadedFiles.push(newPath.replace(`${uploadsDir}/`, ''));
+    }
+
+    // Respond with a list of uploaded files' paths
+    res.json(uploadedFiles);
 });
 
 
-//   const { name, email, password } = req.body;
-
-//   try {
-//     const userDoc = await User.create({
-//       name,
-//       email,
-//       password: bcrypt.hashSync(password, 10), // Use a salt value of 10
-//     });
-//     res.json(userDoc); // Send back the created user document
-//   } catch (e) {
-//     res.status(422).json({ error: e.message }); // Send back error message
-//   }
-// });
-
-// app.post('/api/login', async (req,res) => {
-//   // mongoose.connect(process.env.MONGO_URL);
-//   const {email,password} = req.body;
-//   const userDoc = await User.findOne({email});
-//   if (userDoc) {
-//     const passOk = bcrypt.compareSync(password, userDoc.password);
-//     if (passOk) {
-//       jwt.sign({
-//         email:userDoc.email,
-//         id:userDoc._id
-//       }, jwtSecret, {}, (err,token) => {
-//         if (err) throw err;
-//         res.cookie('token', token).json(userDoc);
-//       });
-//     } else {
-//       res.status(422).json('pass not ok');
+//     const uploadedFiles = [];
+    
+//     // Check if files were uploaded
+//     if (!req.files || req.files.length === 0) {
+//         return res.status(400).json({ error: 'No files were uploaded.' });
 //     }
-//   } else {
-//     res.json('not found');
-//   }
+
+//     for (let i = 0; i < req.files.length; i++) {
+//         const { path: tempPath, originalname } = req.files[i];
+//         const parts = originalname.split('.');
+//         const ext = parts[parts.length - 1];
+//         const newPath = path.join(uploadsDir, `${Date.now()}-${originalname}`); // Use a unique name
+
+//         // Rename the file to include its original extension
+//         fs.renameSync(tempPath, newPath);
+        
+//         // Store relative path for response
+//         uploadedFiles.push(newPath.replace(`${uploadsDir}/`, ''));
+//     }
+
+//     // Respond with a list of uploaded files' paths
+//     res.json(uploadedFiles);
 // });
-
-// app.get('/api/profile', (req,res) => {
-//   const {token} = req.cookies;
-//   if (token) {
-//     jwt.verify(token, jwtSecret, {}, async (err, userData) => {
-//       if (err) throw err;
-//       const {name,email,_id} = await User.findById(userData.id);
-//       res.json({name,email,_id});
-//     });
-//   } else {
-//     res.json(null);
-//   }
-// });
-
-
-// app.post('/api/logout', (req,res) => {
-//   res.cookie('token', '').json(true);
-// });
-
-// place function
-
-
-
 
 // Start the webserver
 app.listen(4000, () => {
-  console.log(`Server running on port: ${4000}`);
+    console.log(`Server running on port: ${4000}`);
 });
