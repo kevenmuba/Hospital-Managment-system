@@ -17,9 +17,10 @@ export default function ProfilePage() {
     await axios.post('/logout');
     setRedirect('/');
     setUser(null);
+    localStorage.removeItem('user');
   }
 
-  if (!setReady) {
+  if (!ready) {
     return 'Loading...';
   }
 
